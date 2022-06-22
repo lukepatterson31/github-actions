@@ -41,3 +41,19 @@ jobs:
           # Default: 1 
           fetch-depth: 0
 
+      - name: Run set up script
+        # Choose the shell. Options here:
+        # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+        shell: bash        
+        run: ./ops/scripts/setup.sh
+
+      - name: Run more scripts
+        # Conditional execution based on success of previous steps. Options here:
+        # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsif
+        if: ${{ success() }}
+        shell: bash
+        # Run multiple scripts sequentially
+        run: |
+          ./ops/scripts/script1.sh
+          ./ops/scripts/script2.sh
+          ./ops/scripts/script3.sh
