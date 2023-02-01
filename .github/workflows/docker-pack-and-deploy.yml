@@ -1,0 +1,62 @@
+name: Deploy Packages in Docker Reusable Workflow
+on:
+  workflow_call:
+    inputs:
+      prerelease:
+        required: true
+        type: string
+      build-configuration:
+        required: true
+        type: string
+      repo-dir:
+        required: false
+        type: string
+      docker-tag:
+        required: true
+        type: string
+      
+jobs: 
+  build:
+    runs-on: [ self-hosted, RunnerName ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0    
+
+      - name: Set release version
+        if: ${{ success() && inputs.prerelease == 'false' }}
+        run: |
+          echo "package_version=$(docker run --rm -v "$(pwd):/repo" gittools/gitversion:6.0.0-fedora.33-7.0 /repo | awk '/"SemVer/ {gsub(/"|",/,""); print$2}' )" >> $GITHUB_ENV            
+
+      - name: Set pre-release version
+        if: ${{ success() && inputs.prerelease == 'true' }}
+        run: |
+          echo "package_version=$(docker run --rm -v "$(pwd):/repo" gittools/gitversion:6.0.0-fedora.33-7.0 /repo | awk '/"SemVer/ {gsub(/"|",/,""); print$2}' )-pre" >> $GITHUB_ENV
+          
+      - name: Create env file
+        run: |
+          echo "FEED_KEY={{ secrets.feed_key }}" > .env
+
+      - name: Build Dockerfile
+        if: ${{ success() }}       
+        run: |
+          DOCKER_BUILDKIT=1 docker build -t ${{ inputs.docker-tag }} -f ./docker/Dockerfile \
+          --secret id=key,src=.env \
+          --build-arg REPO_DIR=${{ inputs.repo-dir }} \
+          --build-arg BUILD_CONFIG=${{ inputs.build-configuration }} \
+          --build-arg PACKAGE_VERSION=${{ env.package_version }} \
+          --no-cache .
+          rm -f .env
+      
+      - name: Package nuget files
+        if: ${{ success() }}
+        run: |
+          docker create --name pack ${{ inputs.docker-tag }}
+          if (( $(docker container ls -a | grep -c 'pack') > 0 )); then docker container rm pack; fi
+
+      - name: Tag and push
+        if: ${{ success() && inputs.prerelease == 'false' }}
+        run: |
+          git tag v${{ env.package_version }} ${{ github.sha }}
+          git push origin v${{ env.package_version }}

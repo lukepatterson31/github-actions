@@ -1,0 +1,59 @@
+name: # enter workflow name here
+
+# When the workflow is triggered
+on:
+  push:
+    branches: # branch name or list ([ main, etc.. ]) here
+
+  pull_request:
+    branches: # branch name or list ([ main, etc.. ]) here
+
+  # No arguments here, this is used to manually trigger the workflow.
+  # Can be omitted.
+  workflow_dispatch: 
+
+# Here we define the various jobs and steps those jobs perform.
+# Each job runs sequentially and can have requirements for it to start,
+# ie. the success of the preceeding jobs, branch or environment conditions, etc.
+#  https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobs 
+jobs:
+  # job_id value
+  job1:
+    # Declare which OS to use or a self-hosted runner. List of supported OS' here: 
+    # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idruns-on
+    runs-on: ubuntu-latest
+    # Declare environment variables for the job here.
+    # To access them call ${{ env.ENV_NAME }}
+    env:
+      MY_ENV: "I'm an environment variable."
+
+    # Here we define the steps the job will perform
+    # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsteps
+    steps:
+      # This step checks out the code of the repository the workflow is running on
+      # https://github.com/actions/checkout
+      - name: Checkout        
+        # Here we declare which action the step will use if it uses one.
+        uses: actions/checkout@v3        
+        # Declare any additional parameters for the action
+        with:          
+          # Number of commits to fetch. 0 indicates all history for all branches and tags.
+          # Default: 1 
+          fetch-depth: 0
+
+      - name: Run set up script
+        # Choose the shell. Options here:
+        # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+        shell: bash        
+        run: ./ops/scripts/setup.sh
+
+      - name: Run more scripts
+        # Conditional execution based on success of previous steps. Options here:
+        # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsif
+        if: ${{ success() }}
+        shell: bash
+        # Run multiple scripts sequentially
+        run: |
+          ./ops/scripts/script1.sh
+          ./ops/scripts/script2.sh
+          ./ops/scripts/script3.sh
